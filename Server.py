@@ -44,14 +44,14 @@ def start():
     server.listen()
     print(f"[LISTENING] Server is listening on {SERVER}\n")
     count = 0
-    while count < 5:
+    while count < 10:
         conn, addr = server.accept()
         clients.append(conn)
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.start()
         print(f"\n[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
         count += 1
-    print("[FINISHED TWO CONNECTIONS]\n")
+    print(f"[FINISHED {count} CONNECTIONS]\n")
 
 def wait_for_msg():
     while len(queue) == 0:
