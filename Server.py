@@ -44,7 +44,7 @@ def start():
     server.listen()
     print(f"[LISTENING] Server is listening on {SERVER}\n")
     count = 0
-    while count < 10:
+    while count < 2:
         conn, addr = server.accept()
         clients.append(conn)
         thread = threading.Thread(target=handle_client, args=(conn, addr))
@@ -135,7 +135,7 @@ def turn(player, p_cards, game, last_turn_cards):
                 if deck_or_last == 'DECK':
                     new_card = game.deal(1)
                     p_cards.append(new_card[0])
-                    player.send(f"NC&You new cards: {p_cards}".encode(FORMAT))
+                    player.send(f"NC&{p_cards}".encode(FORMAT))
 
                 elif deck_or_last == 'LAST':
                     #current_players[who_starts].send(f'The last turn cards are: {last_turn_cards}'.encode(FORMAT))

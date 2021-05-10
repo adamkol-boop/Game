@@ -89,7 +89,6 @@ print("[YOUR CARDS ARE]", cards)
 def match(client):
     game_is_on = True
     while game_is_on:
-
         last_cards = wait_for_msg(header='LC') # waiting for last cards
         if last_cards == 'EML':
             print('[BETTER LUCK NEXT TIME...]')
@@ -132,7 +131,7 @@ def match(client):
             print("[YOU CHOSE DECK]")
 
             new_cards = wait_for_msg(header='NC')  # waiting for new cards
-            print(new_cards)
+            print(f"Your new cards are: {new_cards}")
 
         elif deck_or_last.lower() == 'l':
             client.send('LAST'.encode(FORMAT))
