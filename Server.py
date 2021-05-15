@@ -31,20 +31,14 @@ def handle_client(conn, addr):
         if data == DISCONNECT_MESSAGE:
             connected = False
         queue.append(data)
-        print("[THE QUEUE IS NOW: ", queue)
-        print(f"[{addr}] {data}")
-        #conn.send("[DATA RECEIVED]".encode(FORMAT))
-
 
     conn.close()
-
-
 
 def start():
     server.listen()
     print(f"[LISTENING] Server is listening on {SERVER}\n")
     count = 0
-    while count < 2:
+    while count < 10:
         conn, addr = server.accept()
         clients.append(conn)
         thread = threading.Thread(target=handle_client, args=(conn, addr))
@@ -53,10 +47,21 @@ def start():
         count += 1
     print(f"[FINISHED {count} CONNECTIONS]\n")
 
-def wait_for_msg():
-    while len(queue) == 0:
-        pass
-    return queue[0]
+def wait_for_msg(header):
+    while True:
+        while len(queue) == 0:
+            pass
+        i = -1
+        for item in queue:
+            i += 1
+            if item.split('&')[0] == header:
+                msg = queue[i]
+                queue.remove(msg)
+                print("msg is", msg)
+                msg = msg.split('&')[1:]
+                print(msg)
+                # print('msg-->', msg)
+                return msg
 
 def all_cards_used(game):
     '''the function gets a game type Yaniv
@@ -77,93 +82,49 @@ def broadcast(clients, message):
 def turn(player, p_cards, game, last_turn_cards):
     '''the function  handles a turn. it ends only when
     the player has made a valid turn'''
-    chosen_cards = []
-    time.sleep(1)
-    turn_msg = "It's your turn!"
-
-    player.send(f'LC&{last_turn_cards}'.encode(FORMAT))
+    time.sleep(0.5)
+    last_turn_cards = list_to_string(last_turn_cards)
+    #print("last turn cards len:", len(last_turn_cards))
+    #print("last turn cards:", last_turn_cards)
+    player.send(f'LC&{last_turn_cards}'.encode(FORMAT))  # stringed
     print(f"[LAST TURN CARD SENT:] {last_turn_cards}")
 
-    time.sleep(1)
+    chosen_cards = wait_for_msg(header='CC')[0]
+    print("message:", chosen_cards)
+    if chosen_cards == 'VY':  # valid yaniv
+        return YANIV_MESSAGE
 
-    end_turn = False
-    while not end_turn:
+    chosen_cards = chosen_cards.split(' ')
+    game.going_out(chosen_cards)
+    for i in range(0, len(chosen_cards)):
+        print("p_cards are", p_cards)
+        p_cards.remove(int(chosen_cards[i]))
+    print(f"[UPDATED CARDS BEFORE L/D] {p_cards}")
 
+    last_or_deck = wait_for_msg('DL')
+    print(last_or_deck)
+    print("[CHOSE]", last_or_deck)
+    if last_or_deck[0] == 'DECK':
+        new_card = game.deal(1)[0]
+        p_cards.append(int(new_card))
 
-        player.send(f'TM&{turn_msg}'.encode(FORMAT))
+    elif last_or_deck[0] == 'LAST':
+        new_card = last_or_deck[1]
+        print("the last card chosen:", new_card)
+        game.out_of_use.remove(int(new_card))
+        p_cards.append(int(new_card))
 
-        #time.sleep(1)
-
-        # player.send(f'The last turn cards are: {last_turn_cards}'.encode(FORMAT))
-        # print(f"[LAST TURN CARD SENT:] {last_turn_cards}")
-
-        res = wait_for_msg()
-        queue.clear()
-        if res == YANIV_MESSAGE:
-            print("[PLAYER CALLED YANIV]")
-            sum = game.sum_cards(p_cards)
-            if sum <= 7:
-                player.send('TM&VALID YANIV'.encode(FORMAT))
-                print("[YANIV VERIFIED]")
-                return YANIV_MESSAGE
-            print("[INVALID]")
-            turn_msg = "INVALID"
-        else:
-            chosen_cards = res.split(' ')
-            print(f'Clients chosen cards: {chosen_cards}')
-
-            valid_cards = game.check_valid(chosen_cards)
-            if valid_cards:
-                print('[VALID]')
-                game.going_out(chosen_cards)
-                for i in range(0, len(chosen_cards)):
-                    p_cards.remove(int(chosen_cards[i]))
-                print(f"[UPDATED CARDS] {p_cards}")
-
-                turn_msg = 'VALID'
-                player.send(f'TM&{turn_msg}'.encode(FORMAT))
-                print("[TURN MES SENT]")
-
-                #time.sleep(1)
-
-                # current_players[who_starts].send(f'The last turn cards are: {last_turn_cards}'.encode(FORMAT))
-                # print(f"[LAST TURN CARD SENT:] {last_turn_cards}")
-
-                deck_or_last = wait_for_msg()
-                queue.clear()
-
-                if deck_or_last == 'DECK':
-                    new_card = game.deal(1)
-                    p_cards.append(new_card[0])
-                    player.send(f"NC&{p_cards}".encode(FORMAT))
-
-                elif deck_or_last == 'LAST':
-                    #current_players[who_starts].send(f'The last turn cards are: {last_turn_cards}'.encode(FORMAT))
-                    res = wait_for_msg()
-                    queue.clear()
-
-                    #print(game.out_of_use)
-                    game.out_of_use.remove(int(res))
-
-                    p_cards.append(int(res))
-                    player.send(f"NC&You new cards: {p_cards}".encode(FORMAT))
-
-                #turn_msg = f"VALID Your updated cards: {all_cards[who_starts]}"
-
-
-
-                end_turn = True
-
-            if not valid_cards:
-                print('[INVALID]')
-                turn_msg = "INVALID"
+    cards_mes = list_to_string(p_cards)
+    player.send(f'NC&{cards_mes}'.encode(FORMAT))
+    print(f"[UPDATED CARDS FINAL] {p_cards}")
     return chosen_cards
 
 
 def list_to_string(card_list):
     p_cards_str = ''
-    for card in card_list:
+    for card in card_list[:-1]:
         p_cards_str += str(card) + ' '
+    p_cards_str += str(card_list[-1])
     return p_cards_str
 
 def game(clients):
@@ -175,35 +136,21 @@ def game(clients):
 
     players = 0
     for player in clients:
-        p_cards = game.deal(5)  # dealing cards in lists
+        p_cards = game.deal(5)
+        print("p_cards immedeatly after dealing:", p_cards)# dealing cards in lists
         all_cards.append(p_cards)  # adding to all cards
 
-        cards_str = list_to_string(p_cards)
-        print(f"[P{players + 1}]'S CARDS] {cards_str}")
+        #cards_str = list_to_string(p_cards)
+        print(f"[P{players + 1}]'S CARDS] {p_cards}")
 
-        player.send(f'SGC&{cards_str}'.encode(FORMAT))
+        stringed = list_to_string(p_cards)
+        player.send(f'SGC&{stringed}'.encode(FORMAT))
         players += 1
-
-    # changing the cards' format to string with spaces
-    # p1_cards_str = ''
-    # for card in p1_cards:
-    #     p1_cards_str += str(card) + ' '
-    #
-    #
-    # p2_cards_str = ''
-    # for card in p2_cards:
-    #     p2_cards_str += str(card) + ' '
-    #
-    # print('the cards of the first player are: ' + p1_cards_str)
-    # print('the cards of the second player are: ' + p2_cards_str)
-    #
-    # # sending the players the cards
-    # conn1.send(bytes(p1_cards_str, encoding='utf8'))
-    # conn2.send(bytes(p2_cards_str, encoding='utf8'))
 
     who_starts = game.who_starts(len(clients) - 1)
 
     last_cards = game.deal(1)
+    print("first last cards are:", last_cards)
     game.going_out(last_cards)
 
     match = True
@@ -226,126 +173,27 @@ def game(clients):
 
     # now sending for all
 
-    winner = [game.sum_cards(all_cards[who_starts]), who_starts]
+    winner = [game.sum_cards(all_cards[who_starts]), who_starts]  # [sum, index]
     for i in range(0, len(clients)):
-        if i != who_starts:
-            clients[i].send(NOT_YOU_YANIV_MESSAGE.encode(FORMAT))
-            if game.sum_cards(all_cards[i]) <= winner[0]:
+        if i != who_starts:  # everything except the "winner"
+            #clients[i].send(NOT_YOU_YANIV_MESSAGE.encode(FORMAT))
+            if game.sum_cards(all_cards[i]) <= winner[0]:  # if someones sum is smaller or equal to "winner"
                 winner = [game.sum_cards(all_cards[i]), i]
 
-    if winner[1] == who_starts:
+    if winner[1] == who_starts:  # the caller for yaniv is indeed the winner
         for i in range(0, len(clients)):
             if i != who_starts:
-                clients[i].send("LC&EML".encode(FORMAT))
+                clients[i].send("LC&EML".encode(FORMAT))  # final end message
             elif i == who_starts:
-                clients[i].send("EM&CONGRATULATIONS Your YANIV approved!".encode(FORMAT))
-    else:
+                clients[i].send("EM&CONGRATULATIONS YOU are the WINNER".encode(FORMAT))
+    else:  # there is an asaf
         for i in range(0, len(clients)):
             if i == winner[1]:
-                clients[i].send("LC&EMA".encode(FORMAT))
+                clients[i].send("LC&EMA".encode(FORMAT))  # final end message assaf, the final winner
             elif i == who_starts:
                 clients[i].send("EM&Oops, seems like you got ASAFed...".encode(FORMAT))
             else:
                 clients[i].send("LC&EML".encode(FORMAT))
-
-    # next_p = 0
-    # if who_starts == 0:
-    #     next_p = 1
-    #
-    # last_cards_2 = game.deal(1)
-    # game.going_out(last_cards_2)
-    # while True:
-    #     last_cards_1 = turn(current_players, all_cards, who_starts, game, last_cards_2)
-    #     if last_cards_1 == YANIV_MESSAGE:
-    #         return
-    #     last_cards_2 = turn(current_players, all_cards, next_p, game, last_cards_1)
-    #     if last_cards_2 == YANIV_MESSAGE:
-    #         return
-
-
-    # turn = True
-    # turn_msg = 'Its your turn!'
-    #
-    # match_is_on = True
-    # while match_is_on:
-    #     while turn:
-    #         while len(queue) == 0:
-    #             current_players[who_starts].send(turn_msg.encode(FORMAT))
-    #             while True:
-    #                 try:
-    #                     chosen_cards = queue[0].split(' ')
-    #                     time.sleep(1)
-    #                     print("\nThe chosen cards: ", chosen_cards)
-    #                     break
-    #                 except:
-    #                     pass
-    #             if not game.check_valid(chosen_cards):  # if the cards chosen are not valid
-    #                 print('[INVALID CARDS]')
-    #                 queue.clear()
-    #                 print('queue is:', queue)
-    #                 turn_msg = "INVALID"
-    #                 break
-    #             else:
-    #                 print('[VALID CARDS]')
-    #                 game.going_out(chosen_cards)
-    #                 for i in range(0, len(chosen_cards)):
-    #                     print(chosen_cards)
-    #                     print(all_cards[who_starts])
-    #                     all_cards[who_starts].remove(int(chosen_cards[i]))
-    #                     print(f"[UPDATED P1 CARDS] {all_cards[who_starts]}")
-    #                 new_card = game.deal(1)
-    #                 all_cards[who_starts].append(new_card[0])
-    #                 turn_msg = f"VALID Your updated cards: {all_cards[who_starts]}"
-    #                 current_players[who_starts].send(turn_msg.encode(FORMAT))
-    #                 queue.clear()
-    #                 turn = False
-    #                 break
-    #
-    #     turn = True
-    #     turn_msg = 'Its your turn!'
-    #     while turn:
-    #         while len(queue) == 0:
-    #             place = 0
-    #             if who_starts == 0:
-    #                 current_players[who_starts + 1].send(turn_msg.encode(FORMAT))
-    #                 place = who_starts + 1
-    #             else:
-    #                 current_players[who_starts - 1].send(turn_msg.encode(FORMAT))
-    #                 place = who_starts - 1
-    #             while True:
-    #                 try:
-    #                     chosen_cards = queue[0].split(' ')
-    #                     time.sleep(1)
-    #                     print("\nThe chosen cards: ", chosen_cards)
-    #                     break
-    #                 except:
-    #                     pass
-    #             if not game.check_valid(chosen_cards):  # if the cards chosen are not valid
-    #                 print('[INVALID CARDS]')
-    #                 queue.clear()
-    #                 print('queue is:', queue)
-    #                 turn_msg = "INVALID"
-    #                 break
-    #             else:
-    #                 print('[VALID CARDS]')
-    #                 game.going_out(chosen_cards)
-    #                 for i in range(0, len(chosen_cards)):
-    #                     print(who_starts)
-    #                     print(place)
-    #                     print(all_cards)
-    #                     print(all_cards[place])
-    #                     all_cards[place].remove(int(chosen_cards[i]))
-    #
-    #                     print(f"[UPDATED P1 CARDS] {all_cards[place]}")
-    #                 new_card = game.deal(1)
-    #                 all_cards[place].append(new_card[0])
-    #                 turn_msg = f"VALID Your new card: {all_cards[place]}"
-    #                 current_players[place].send(turn_msg.encode(FORMAT))
-    #                 queue.clear()
-    #                 turn = False
-    #                 break
-
-
 
 
 print("[STARTING] server is starting...")
