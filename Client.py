@@ -64,11 +64,9 @@ def start_thread(client):
 
 start_thread(client)
 
-cards = wait_for_msg(header='SGC').split(' ')
-print("[YOUR CARDS ARE]", cards)
-
-
 def match(client):
+    cards = wait_for_msg(header='SGC').split(' ')
+    print("[YOUR CARDS ARE]", cards)
     '''the function gets the connection socket with the server
     and handles the gaem itself. all the logic is going here.
     void function'''

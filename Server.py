@@ -38,7 +38,7 @@ def start():
     server.listen()
     print(f"[LISTENING] Server is listening on {SERVER}\n")
     count = 0
-    while count < 10:
+    while count < 2:
         conn, addr = server.accept()
         clients.append(conn)
         thread = threading.Thread(target=handle_client, args=(conn, addr))
