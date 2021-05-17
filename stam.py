@@ -56,6 +56,12 @@ cards_logo_crop = pygame.transform.scale(cards_logo_crop, (WIDTH, HEIGHT))
 line_above_cards = pygame.image.load(rf'PNG\pas.png')  # the line for the choosing arrow. part of the second background
 line_above_cards = pygame.transform.scale(line_above_cards, (WIDTH, HEIGHT))
 
+pick_filter = pygame.image.load(r'PNG\pick_filter.png')
+pick_filter = pygame.transform.scale(pick_filter, (WIDTH, HEIGHT))
+
+red_arrow = pygame.image.load(r'PNG\red_arrow.png')
+red_arrow = pygame.transform.scale(red_arrow, (int(HEIGHT/40), int(HEIGHT/40)))
+
 drop1 = pygame.image.load(rf'PNG\drop1BUTT.png')
 drop2 = pygame.image.load(rf'PNG\drop2BUTT.png')
 drop_crop = pygame.image.load(fr'PNG\drop_crop.png')
@@ -406,7 +412,7 @@ def draw_wating_for_players():
             if event.type == pygame.KEYDOWN:
                 soundObj.stop()
                 loop = False
-def draw_cards(cards, greened, redded, new_num=False):
+def draw_cards(cards, greened, redded, dot_index, new_num=False, pick=False):
 
     if new_num:
         WIN.blit(cards_crop, (0, 0))
@@ -416,9 +422,17 @@ def draw_cards(cards, greened, redded, new_num=False):
     # if cards_num > 5:
     #     dif = WIDTH/18
     i = WIDTH/2 - 0.5*(cards_num - 1)*dif
+    y = HEIGHT - HEIGHT/7
+
+    if pick:
+        print("drawing pick")
+        ratio = 7
+        y = HEIGHT/2 - HEIGHT/35
+        dif = WIDTH/11
+        i = WIDTH/3 - 0.5*(cards_num - 1)*dif
+
     card_w = 691/ratio
     card_h = 1056/ratio
-
     for item in cards:
 
         card = fr'PNG\{item}.png'
@@ -429,9 +443,13 @@ def draw_cards(cards, greened, redded, new_num=False):
         #print(f'imageW {image.get_width()} and imageH {image.get_height()}')
 
         card_rect = card_image.get_rect()
-        card_rect.center = (i, HEIGHT - HEIGHT/7)
+        card_rect.center = (i, y)
 
         WIN.blit(card_image, card_rect)
+
+        if cards.index(item) in dot_index:
+            print("drawing red idot")
+            WIN.blit(red_arrow, (i + card_w/4, y - card_h/2.3))
 
         if cards.index(item) in greened:
             green_filter = pygame.image.load(rf'PNG\green_filter.png')
@@ -526,10 +544,11 @@ def draw_arrow_choose(cards, index):
     #         i += dif
     # return
 
-def draw_stack(stack, bigger=False):
+def draw_stack(stack, bigger=False, crop=True):
     stack_crop = pygame.image.load(rf'PNG\stack_crop.png')
     stack_crop = pygame.transform.scale(stack_crop, (WIDTH, HEIGHT))
-    WIN.blit(stack_crop, (0, 0))
+    if crop:
+        WIN.blit(stack_crop, (0, 0))
     if stack <= 5:
         stack_back = pygame.image.load(rf'PNG\stack_{stack}.png')
 
@@ -738,15 +757,17 @@ def choose(cards):
 
     is_stack_big = False
 
-    chosen = False
-    while not chosen:
+    finished_choose = False
+    run = True
+    while run:
         for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    run = False
-
+            if event.type == pygame.QUIT:
+                run = False
+            mx, my = pygame.mouse.get_pos()
+            if not finished_choose:
                 if event.type == pygame.KEYUP:
                     print("Here")
-                #draw_arrow_choose(cards, index)
+                    #draw_arrow_choose(cards, index)
                     if event.key == pygame.K_LEFT:
                         if index == 0:
                             index = 0
@@ -767,79 +788,197 @@ def choose(cards):
                             if index not in cards_greened:
                                 cards_greened.append(index)
                                 chosen_cards.append(cards[index])
-                                draw_cards(cards, cards_greened, [])
+                                draw_cards(cards, cards_greened, [], [])
                             else:
                                 cards_greened.remove(index)
                                 chosen_cards.remove(cards[index])
-                                draw_cards(cards, cards_greened, [])
-        pygame.display.flip()
+                                draw_cards(cards, cards_greened, [], [])
+                pygame.display.flip()
+            #mx, my = pygame.mouse.get_pos()
+                if mx > 985 and mx < 1065 and my > 593 and my < 642:
+                    draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7), True)
+                    #for event in pygame.event.get():
+                    #pygame.event.get()
+                    if pygame.mouse.get_pressed()[0]:
+                        is_valid = cm.check_valid(chosen_cards)
+                        print("chosen cards:", chosen_cards, "is valid is", is_valid)
+                        if len(chosen_cards) == 0:
+                            is_valid = False
+                        if is_valid:
+                            #print("valid. cards: ", cards, "chosen cards:", chosen_cards)
+                            for card in chosen_cards:
+                                cards.remove(card)
+                            draw_cards(cards, [], [], [], True)
+                            index = 0
+                            draw_arrow_choose(cards, index)
+                            draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7), False)
+                            finished_choose = True
+                            # return [True, chosen_cards, cards]
+                        if not is_valid:  # else means the chosen cards invalid
+                            print("invalid", cards_greened)
+                            draw_cards(cards, [], cards_greened, [])
+                            time.sleep(1)
+                            draw_cards(cards, [], [], [])
+                            chosen_cards.clear()
+                            cards_greened.clear()
+                            index = 0
+                            draw_arrow_choose(cards, index)
+                else:
+                    draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7))
 
+                if mx > 217 and mx < 296 and my > 594 and my < 642:
+                        draw_button(yaniv1, yaniv2, yaniv_b_crop, (WIDTH/5, HEIGHT - HEIGHT/7), True)
+                        #for event in pygame.event.get():
+                        if pygame.mouse.get_pressed()[0]:
+                            is_valid = cm.sum_cards(cards) <= 7
+                            if is_valid:
+                                return [False, YANIV_MESSAGE]
+                            else:  # else means the chosen cards invalid
+                                cards_greened.clear()
+                                for i in range(0, len(cards)):
+                                    cards_greened.append(i)
+                                draw_cards(cards, [], cards_greened, [])
+                                time.sleep(1)
+                                draw_cards(cards, [], [], [])
+                                index = 0
+                                draw_arrow_choose(cards, index)
+                                chosen_cards.clear()
+                                cards_greened.clear()
+                else:
+                    draw_button(yaniv1, yaniv2, yaniv_b_crop, (WIDTH/5, HEIGHT - HEIGHT/7))
+            else:
+                WIN.blit(yaniv_b_crop, (0, 0))
+                WIN.blit(drop_crop, (0, 0))
+                ask_deck_or_last(chosen_cards)
+                pygame.display.flip()
+                return
         # STACK
-        mx, my = pygame.mouse.get_pos()
-        if mx > 790 and mx < 920 and my > 245 and my < 440:
+        #mx, my = pygame.mouse.get_pos()
+            #print(f'x: {mx}, y: {my}')
+            if mx > 790 and mx < 920 and my > 245 and my < 440:
+                #print("on button")
                 if not is_stack_big:
                     draw_stack(5, bigger=True)
                     is_stack_big = True
                 if pygame.mouse.get_pressed()[0]:
-                    print("pressed")
-        else:
-            if is_stack_big:
-                draw_stack(5)
-                is_stack_big = False
+                    #print("pressed")
+                    return [True, chosen_cards, cards, True]  # the last true stands for --> deck=True, last=False
+            else:
+                #print("not on button")
+                if is_stack_big:
+                    draw_stack(5)
+                    is_stack_big = False
 
+            pygame.display.flip()
+
+        # if mx > 985 and mx < 1065 and my > 593 and my < 642:
+        #         draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7), True)
+        #         #for event in pygame.event.get():
+        #         #pygame.event.get()
+        #         if pygame.mouse.get_pressed()[0] and not finished_choose:
+        #             is_valid = cm.check_valid(chosen_cards)
+        #             print("chosen cards:", chosen_cards, "is valid is", is_valid)
+        #             if len(chosen_cards) == 0:
+        #                 is_valid = False
+        #             if is_valid:
+        #                 #print("valid. cards: ", cards, "chosen cards:", chosen_cards)
+        #                 for card in chosen_cards:
+        #                     cards.remove(card)
+        #                 draw_cards(cards, [], [], True)
+        #                 index = 0
+        #                 draw_arrow_choose(cards, index)
+        #                 draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7), False)
+        #                 finished_choose = True
+        #                 # return [True, chosen_cards, cards]
+        #             if not is_valid:  # else means the chosen cards invalid
+        #                 print("invalid", cards_greened)
+        #                 draw_cards(cards, [], cards_greened)
+        #                 time.sleep(1)
+        #                 draw_cards(cards, [], [])
+        #                 chosen_cards.clear()
+        #                 cards_greened.clear()
+        #                 index = 0
+        #                 draw_arrow_choose(cards, index)
+        #         else:
+        #             draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7))
+        # else:
+        #     draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7))
+        #
+        # if mx > 217 and mx < 296 and my > 594 and my < 642:
+        #         draw_button(yaniv1, yaniv2, yaniv_b_crop, (WIDTH/5, HEIGHT - HEIGHT/7), True)
+        #         #for event in pygame.event.get():
+        #         if pygame.mouse.get_pressed()[0] and not finished_choose:
+        #             is_valid = cm.sum_cards(cards) <= 7
+        #             if is_valid:
+        #                 return [False, YANIV_MESSAGE]
+        #             else:  # else means the chosen cards invalid
+        #                 cards_greened.clear()
+        #                 for i in range(0, len(cards)):
+        #                     cards_greened.append(i)
+        #                 draw_cards(cards, [], cards_greened)
+        #                 time.sleep(1)
+        #                 draw_cards(cards, [], [])
+        #                 index = 0
+        #                 draw_arrow_choose(cards, index)
+        #                 chosen_cards.clear()
+        #                 cards_greened.clear()
+        #         else:
+        #             draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7))
+        # else:
+        #     draw_button(yaniv1, yaniv2, yaniv_b_crop, (WIDTH/5, HEIGHT - HEIGHT/7))
+def ask_deck_or_last(last_cards):
+
+    WIN.blit(pick_filter, (0, 0))
+    #WIN.blit(line_above_cards, (0, 0))
+    draw_cards(last_cards, [], [], [], False, True)
+    draw_stack(5, False, False)
+    choose_txt = myfont_medium.render('pick', True, WHITE)
+    choose_txt_rect = choose_txt.get_rect()
+    choose_txt_rect.center = (WIDTH/2, HEIGHT - HEIGHT/4)
+    #WIN.blit(choose_txt, choose_txt_rect)
+    pygame.display.flip()
+
+    index = 0
+    choose = False
+    while not choose:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_LEFT:
+                    if index == 0:
+                        #draw_cards(last_cards, [], [], [], False, True)
+                        index = len(last_cards)
+                        WIN.blit(red_arrow, (WIDTH - WIDTH/3.2, HEIGHT/2 - HEIGHT/20))
+                        draw_cards(last_cards, [], [], [], False, True)
+                    elif index == len(last_cards):
+                        draw_stack(5, False, False)
+                        index = len(last_cards) - 1
+                        draw_cards(last_cards, [], [], [index], False, True)
+                    else:
+                        index = 0
+                        draw_cards(last_cards, [], [], [index], False, True)
+                if event.key == pygame.K_RIGHT:
+                    if index == 0 and len(last_cards) == 1:
+                        index = len(last_cards)
+                        WIN.blit(red_arrow, (WIDTH - WIDTH/3.2, HEIGHT/2 - HEIGHT/20))
+                        draw_cards(last_cards, [], [], [], False, True)
+                    elif index == 0:
+                        index += len(last_cards) - 1
+                        draw_cards(last_cards, [], [], [index], False, True)
+                    elif index == len(last_cards) - 1:
+                        index = len(last_cards)
+                        WIN.blit(red_arrow, (WIDTH - WIDTH/3.2, HEIGHT/2 - HEIGHT/20))
+                        draw_cards(last_cards, [], [], [], False, True)
+                    elif index == len(last_cards):
+                        draw_stack(5, False, False)
+                        index = 0
+                        draw_cards(last_cards, [], [], [index], False, True)
         pygame.display.flip()
+    question = choose_txt = myfont_medium.render('draw pile:', True, WHITE)
 
-        if mx > 985 and mx < 1065 and my > 593 and my < 642:
-                draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7), True)
-                #for event in pygame.event.get():
-                #pygame.event.get()
-                if pygame.mouse.get_pressed()[0]:
-                    is_valid = cm.check_valid(chosen_cards)
-                    print("chosen cards:", chosen_cards, "is valid is", is_valid)
-                    if len(chosen_cards) == 0:
-                        is_valid = False
-                    if is_valid:
-                        #print("valid. cards: ", cards, "chosen cards:", chosen_cards)
-                        for card in chosen_cards:
-                            cards.remove(card)
-                        draw_cards(cards, [], [], True)
-                        index = 0
-                        draw_arrow_choose(cards, index)
-                        draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7), False)
-                        return [True, chosen_cards, cards]
-                    if not is_valid:  # else means the chosen cards invalid
-                        print("invalid", cards_greened)
-                        draw_cards(cards, [], cards_greened)
-                        time.sleep(1)
-                        draw_cards(cards, [], [])
-                        chosen_cards.clear()
-                        cards_greened.clear()
-                        index = 0
-                        draw_arrow_choose(cards, index)
 
-        else:
-            draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7))
-
-        if mx > 217 and mx < 296 and my > 594 and my < 642:
-                draw_button(yaniv1, yaniv2, yaniv_b_crop, (WIDTH/5, HEIGHT - HEIGHT/7), True)
-                #for event in pygame.event.get():
-                if pygame.mouse.get_pressed()[0]:
-                    is_valid = cm.sum_cards(cards) <= 7
-                    if is_valid:
-                        return [False, YANIV_MESSAGE]
-                    else:  # else means the chosen cards invalid
-                        cards_greened.clear()
-                        for i in range(0, len(cards)):
-                            cards_greened.append(i)
-                        draw_cards(cards, [], cards_greened)
-                        time.sleep(1)
-                        draw_cards(cards, [], [])
-                        index = 0
-                        draw_arrow_choose(cards, index)
-                        chosen_cards.clear()
-                        cards_greened.clear()
-        else:
-            draw_button(yaniv1, yaniv2, yaniv_b_crop, (WIDTH/5, HEIGHT - HEIGHT/7))
 
 def pick_dl():
 
@@ -883,27 +1022,29 @@ def main():
     draw_window(blue_backg)
     draw_stack(5)
     draw_enemy_cards(sums)
-    cards = [2, 1, 52, 8, 10]
+    cards = [2, 1, 52, 53, 5]
     cards_greened = []
     draw_arrow_choose(cards, 0)
-    draw_cards(cards, cards_greened, [])
+    draw_cards(cards, cards_greened, [], [])
 
     draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7))
     draw_button(yaniv1, yaniv2, yaniv_b_crop, (WIDTH/5, HEIGHT - HEIGHT/7))
 
+    res = choose(cards)
+    #if res[0]:
+        #deck_or_last = pick_dl()  # pick deck or last
+        #used_cards(res[1])
+        #print(res[2])
+    #else:
+        #print("YANIV!")
     is_stack_big = False
     #is_on_drop = False
     print("draw finished")
     while run:
         #clock.tick(FPS)
         index = 0
-        res = choose(cards)
-        if res[0]:
-            #deck_or_last = pick_dl()  # pick deck or last
-            used_cards(res[1])
-            print(res[2])
-        else:
-            print("YANIV!")
+
+        #pick_dl()
 
         #pick_dl()
         # mx, my = pygame.mouse.get_pos()
