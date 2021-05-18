@@ -116,6 +116,7 @@ class Yaniv:
             return (card_num % 13) + 1
         return 0
 
+
     def sum_cards(self, cards_list):
         """The function gets a list of cards
             and returns the sum of the card values"""
@@ -181,7 +182,9 @@ class Yaniv:
             sort[-2] = 61
         if jokers == 1:
             sort[-1] = 60
-        if len(sort) == 1 and not (jokers < 0):
+        if jokers < 0:
+            return False
+        if len(sort) == 1:
             return True
         if sort[0] == sort[1] - 1:
             return self.ascend(sort[1:], jokers)
