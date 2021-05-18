@@ -47,7 +47,7 @@ wait_key_crop = pygame.transform.scale(wait_key_crop, (WIDTH, HEIGHT))
 cards_crop = pygame.image.load(rf'PNG\cards_crop.png')
 cards_crop = pygame.transform.scale(cards_crop, (WIDTH, HEIGHT))
 
-cards_logo = pygame.image.load('cards_bg.png')  # the logo of the cards from the beginning
+cards_logo = pygame.image.load('PNG\cards_bg.png')  # the logo of the cards from the beginning
 cards_logo = pygame.transform.scale(cards_logo, (int(WIDTH/2.5), int(HEIGHT/1.4234)))
 
 cards_logo_crop = pygame.image.load(rf'PNG\bg_crop.png')  # the INTRO_BACKG cropped for the card logo
@@ -97,8 +97,8 @@ def draw_window(image1):
 
 # List_updates = []
 
-soundObj = pygame.mixer.Sound('ElevatorMusic.wav')
-ww_music = pygame.mixer.Sound('WildWestern.wav')
+soundObj = pygame.mixer.Sound(r'Music\ElevatorMusic.wav')
+ww_music = pygame.mixer.Sound(r'Music\WildWestern.wav')
 
 def draw_opensc():
     true = True
@@ -1011,8 +1011,10 @@ def draw_back_to_game(cards, all_sums, stack, last_cards):
     draw_cards(cards, [], [], [-1], [])
     draw_enemy_cards(all_sums)
     draw_stack(stack)
-    used_cards(last_cards)
-
+    if len(last_cards) == 0:
+        used_cards(last_cards, False)
+    else:
+        used_cards(last_cards)
     pygame.display.flip()
 
 
@@ -1045,7 +1047,10 @@ def main():
     res = choose(cards, order)
     last_cards.remove(res[-1][-1])
     draw_back_to_game(res[-1], sums, 5, last_cards)
-    used_cards(res[1])
+    if len(last_cards) == 0:
+        used_cards(res[1], False)
+    else:
+        used_cards(res[1])
     #if res[0]:
         #deck_or_last = pick_dl()  # pick deck or last
         #used_cards(res[1])
