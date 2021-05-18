@@ -75,9 +75,9 @@ def all_cards_used(game):
         game.in_use[card_num] = 0
     return True
 
-def broadcast(clients, message):
+def broadcast(clients, message, header):
     for client in clients:
-        client.send(f'BROADCAST&{message}'.encode(FORMAT))
+        client.send(f'BROADCAST&{header}&{message}'.encode(FORMAT))
 
 def turn(player, p_cards, game, last_turn_cards):
     '''the function  handles a turn. it ends only when
@@ -129,8 +129,11 @@ def list_to_string(card_list):
 
 def game(clients):
 
-    current_players = clients
     all_cards = []
+    all_sums = []
+
+    for i in range(0, len(clients)):
+        all_sums.append(5)
 
     game = Yaniv.Yaniv()# New game created
 
@@ -156,6 +159,12 @@ def game(clients):
     match = True
     while match:
         last_cards = turn(clients[who_starts], all_cards[who_starts], game, last_cards)
+
+        # after this line, the last cards saves the current turn chosen cards.
+        all_sums[who_starts] -= len(last_cards)
+        broadcast(clients, last_cards, 'ULC')  # ULCas = Updated Last Cards
+        time.sleep(0.5)
+        broadcast(clients, all_sums, 'AS')  # All Sums
         who_starts += 1
 
         if last_cards == YANIV_MESSAGE:
@@ -167,12 +176,11 @@ def game(clients):
 
         is_empty_stack = all_cards_used(game)
         if is_empty_stack:
-            broadcast(clients, '\n[[[ReNeWiNg StAcK]]]\n')
+            broadcast(clients, '\n[[[ReNeWiNg StAcK]]]\n', 'RS')  # rs = renewing stack
             last_cards = game.deal(1)
             game.going_out(last_cards)
 
     # now sending for all
-
     winner = [game.sum_cards(all_cards[who_starts]), who_starts]  # [sum, index]
     for i in range(0, len(clients)):
         if i != who_starts:  # everything except the "winner"

@@ -9,11 +9,15 @@ DISCONNECT_MESSAGE = "!DISCONNECT"
 INVALID = "INVALID"
 VALID = "VALID"
 NOT_YOU_YANIV_MESSAGE = 'NYYANIV'
+YANIV_MESSAGE = 'yaniv'
 
 SERVER = socket.gethostbyname(socket.gethostname())
 ADDR = (SERVER, PORT)
 
 msg_queue = []
+
+graphic_queue = []
+graphic_respond_queue = []
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(ADDR)
@@ -53,9 +57,19 @@ def wait_for_msg(header):
                 # print('msg-->', msg)
                 return msg[0]
             if item.split('&')[0] == 'BROADCAST':
-                print(item.split('&')[1])
+                #print(item.split('&')[1])
                 msg = msg_queue[i]
                 msg_queue.remove(msg)
+                if item.split('&')[1] == 'ULC':
+                    # means someone finished his turn
+                    #print(item.split('&'))
+                    content = item.split('&')[2]
+                    print("broadcast mes is:", content)
+                    graphic_queue.append(f'ULC%{content}')  # draws the cards
+                if item.split('&')[1] == 'AS':
+                    content = item.split('&')[2]
+                    print("broadcast mes is:", content)
+                    graphic_queue.append(f'AS%{content}')  # draws the cards
 
 
 def start_thread(client):
@@ -65,13 +79,14 @@ def start_thread(client):
 start_thread(client)
 
 def match(client):
-    cards = wait_for_msg(header='SGC').split(' ')
-    print("[YOUR CARDS ARE]", cards)
     '''the function gets the connection socket with the server
     and handles the gaem itself. all the logic is going here.
     void function'''
-    new_cards = cards
+    cards = wait_for_msg(header='SGC').split(' ')
+    #graphic_queue.append(f'SGC%{cards}')  # adding
+    print("[YOUR CARDS ARE]", cards)
 
+    new_cards = cards
     game_is_on = True
     while game_is_on:
         '''the message below is the begining of every turn.
@@ -81,22 +96,31 @@ def match(client):
         3 = EMA --> game has ended, you are the winner with an asaf'''
 
         last_cards = wait_for_msg(header='LC') # waiting for last cards
+
         if last_cards == 'EML':  # end message loose. final
+            #graphic_queue.append('EML')  # added
             print('[BETTER LUCK NEXT TIME...]')
             return False
         if last_cards == 'EMA':
+            #graphic_queue.append('EMA')  # added
             print('[OMG SHEEESHHHHH YOU GOT AN ASAF!]') # end message assaf. final
             return False
 
         last_cards = last_cards.split(' ')
-        print("last cards but list:", last_cards)
-        print("It's your turn!")
-        # if the code is here it means thats a regular turn
+        #graphic_queue.append(f'LC%{last_cards}')  # last cards --> used_cards()
         print(f'[THE LAST CARDS] {last_cards}')
+        print("It's your turn!")
+
+        #graphic_queue.append(f'CH')  # ch stands for choose
+
+        # now wait for chosen cards
+        #while len(graphic_respond_queue) == 0:
+            #pass
 
         is_valid = False
         while not is_valid:
             chosen_cards  = input("[CHOOSE YOUR CARDS] ")
+
 
             if chosen_cards.upper() == 'YANIV':
                 cards_sum = cm.sum_cards(new_cards)
