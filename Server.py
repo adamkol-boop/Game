@@ -96,7 +96,7 @@ def turn(player, p_cards, game, last_turn_cards):
     if chosen_cards == 'VY':  # valid yaniv
         return YANIV_MESSAGE
 
-    broadcast(clients, f'{chosen_cards}', 'ULC')
+    #broadcast(clients, f'{chosen_cards}', 'ULC')
 
     chosen_cards = chosen_cards.split(' ')
     game.going_out(chosen_cards)

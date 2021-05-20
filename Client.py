@@ -134,11 +134,12 @@ def graphics():
             if header == 'ULC':
                 if printed_screen:
                     last_cards = graphic.split('%')[1].split(' ')
+                    graphic_queue.remove(graphic)
                     print("got the ULC message")
                     print("last cards before split:", last_cards)
 
                     gc.used_cards(last_cards)
-                    graphic_queue.remove(graphic)
+
 
 def list_to_string(card_list):
     p_cards_str = ''
