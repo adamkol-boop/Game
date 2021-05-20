@@ -45,6 +45,7 @@ def start():
         thread.start()
         print(f"\n[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
         count += 1
+        broadcast(clients, count, 'WFP')  # number of players connected
     print(f"[FINISHED {count} CONNECTIONS]\n")
 
 def wait_for_msg(header):
@@ -86,6 +87,7 @@ def turn(player, p_cards, game, last_turn_cards):
     last_turn_cards = list_to_string(last_turn_cards)
     #print("last turn cards len:", len(last_turn_cards))
     #print("last turn cards:", last_turn_cards)
+    time.sleep(1)
     player.send(f'LC&{last_turn_cards}'.encode(FORMAT))  # stringed
     print(f"[LAST TURN CARD SENT:] {last_turn_cards}")
 
@@ -93,6 +95,8 @@ def turn(player, p_cards, game, last_turn_cards):
     print("message:", chosen_cards)
     if chosen_cards == 'VY':  # valid yaniv
         return YANIV_MESSAGE
+
+    broadcast(clients, f'{chosen_cards}', 'ULC')
 
     chosen_cards = chosen_cards.split(' ')
     game.going_out(chosen_cards)
@@ -102,7 +106,7 @@ def turn(player, p_cards, game, last_turn_cards):
     print(f"[UPDATED CARDS BEFORE L/D] {p_cards}")
 
     last_or_deck = wait_for_msg('DL')
-    print(last_or_deck)
+    print('heeeeeeeeeeeeeeeey', last_or_deck)
     print("[CHOSE]", last_or_deck)
     if last_or_deck[0] == 'DECK':
         new_card = game.deal(1)[0]
@@ -115,6 +119,7 @@ def turn(player, p_cards, game, last_turn_cards):
         p_cards.append(int(new_card))
 
     cards_mes = list_to_string(p_cards)
+    time.sleep(1)
     player.send(f'NC&{cards_mes}'.encode(FORMAT))
     print(f"[UPDATED CARDS FINAL] {p_cards}")
     return chosen_cards
@@ -140,14 +145,16 @@ def game(clients):
     players = 0
     for player in clients:
         p_cards = game.deal(5)
-        print("p_cards immedeatly after dealing:", p_cards)# dealing cards in lists
+        print("p_cards immedeatly after dealing:", p_cards) # dealing cards in lists
         all_cards.append(p_cards)  # adding to all cards
 
         #cards_str = list_to_string(p_cards)
         print(f"[P{players + 1}]'S CARDS] {p_cards}")
 
         stringed = list_to_string(p_cards)
+        print("stringed is", stringed)
         player.send(f'SGC&{stringed}'.encode(FORMAT))
+        time.sleep(1)
         players += 1
 
     who_starts = game.who_starts(len(clients) - 1)
@@ -158,13 +165,15 @@ def game(clients):
 
     match = True
     while match:
+        last_cards_string = list_to_string(last_cards)
+        broadcast(clients, last_cards_string, 'ULC')  # ULCas = Updated Last Cards
         last_cards = turn(clients[who_starts], all_cards[who_starts], game, last_cards)
 
         # after this line, the last cards saves the current turn chosen cards.
         all_sums[who_starts] -= len(last_cards)
-        broadcast(clients, last_cards, 'ULC')  # ULCas = Updated Last Cards
-        time.sleep(0.5)
-        broadcast(clients, all_sums, 'AS')  # All Sums
+
+        #time.sleep(0.5)
+        #broadcast(clients, all_sums, 'AS')  # All Sums
         who_starts += 1
 
         if last_cards == YANIV_MESSAGE:

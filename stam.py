@@ -44,6 +44,12 @@ name_crop = pygame.transform.scale(name_crop, (WIDTH, HEIGHT))
 wait_key_crop = pygame.image.load(rf'PNG\wait_key_crop.png')
 wait_key_crop = pygame.transform.scale(wait_key_crop, (WIDTH, HEIGHT))
 
+waiting_for_p_crop = pygame.image.load(rf'PNG\waiting_for_p_crop.png')
+waiting_for_p_crop = pygame.transform.scale(waiting_for_p_crop, (WIDTH, HEIGHT))
+
+connected_num = pygame.image.load(rf'PNG\connected_num_crop.png')
+connected_num = pygame.transform.scale(connected_num, (WIDTH, HEIGHT))
+
 cards_crop = pygame.image.load(rf'PNG\cards_crop.png')
 cards_crop = pygame.transform.scale(cards_crop, (WIDTH, HEIGHT))
 
@@ -101,11 +107,11 @@ soundObj = pygame.mixer.Sound(r'Music\ElevatorMusic.wav')
 ww_music = pygame.mixer.Sound(r'Music\WildWestern.wav')
 
 def draw_opensc():
-    true = True
-    while true:
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                true = False
+    # true = True
+    # while true:
+    #     for event in pygame.event.get():
+    #         if event.type == pygame.KEYDOWN:
+    #             true = False
     ww_music.play()
     WIN.blit(intro_backg, (0, 0))
     pygame.display.flip()
@@ -364,6 +370,23 @@ def draw_card_test():
     WIN.blit(back_card, rect)
     pygame.display.flip()
 
+def draw_number_in_lobby(number):
+    '''this funciton gets the number of players that are currently online
+    for the "waiting for players screen"'''
+    WIN.blit(connected_num, (0, 0))
+
+    number = myfont_BIG.render(f'{number}', True, WHITE)
+    num_rect = number.get_rect()
+    num_rect.center = (WIDTH - WIDTH/2.5, HEIGHT - HEIGHT/4)
+
+    connected = myfont_medium.render(f'connected:', True, WHITE)
+    con_rect = connected.get_rect()
+    con_rect.center = (WIDTH/2.5, HEIGHT - HEIGHT/3.5)
+
+    WIN.blit(connected, con_rect)
+    WIN.blit(number, num_rect)
+    pygame.display.update()
+
 def draw_wating_for_players():
 
     text = myfont_medium.render('Waiting for players', True, BORDO)
@@ -378,7 +401,7 @@ def draw_wating_for_players():
 
     #textRect = text.get_rect()
     #textRect.center = (WIDTH/2, HEIGHT/2)
-    soundObj.play()
+    #soundObj.play()
     y = HEIGHT
     while y > HEIGHT/3:
         WIN.blit(intro_backg, (0, 0))
@@ -391,29 +414,29 @@ def draw_wating_for_players():
     y += 1
     loop = True
     while loop:
-        WIN.blit(intro_backg, (0, 0))
+        WIN.blit(waiting_for_p_crop, (0, 0))
         pygame.display.update()
 
 
         WIN.blit(text, (int(WIDTH/2.5), y))
         pygame.display.update()
         time.sleep(0.3)
-        WIN.blit(intro_backg, (0, 0))
+        WIN.blit(waiting_for_p_crop, (0, 0))
         WIN.blit(text_1dot, (int(WIDTH/2.5), y))
         pygame.display.update()
         time.sleep(0.3)
-        WIN.blit(intro_backg, (0, 0))
+        WIN.blit(waiting_for_p_crop, (0, 0))
         WIN.blit(text_2dot, (int(WIDTH/2.5), y))
         pygame.display.update()
         time.sleep(0.3)
-        WIN.blit(intro_backg, (0, 0))
+        WIN.blit(waiting_for_p_crop, (0, 0))
         WIN.blit(text_3dot, (int(WIDTH/2.5), y))
         pygame.display.update()
         time.sleep(0.3)
 
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
-                soundObj.stop()
+                #soundObj.stop()
                 loop = False
 def draw_cards(cards, greened, redded, whited, dot_index, new_num=False, pick=False):
 
@@ -646,8 +669,8 @@ def draw_button(image, image_pressed, crop, pos, on_it=False):
 def used_cards(chosen_cards, filter=True):
     '''the function gets the cards chosen and the cards in general
     by the player and draws them in the used cards'''
-    if filter:
-        WIN.blit(used_cards_filter, (0, 0))
+    # if filter:
+    #     WIN.blit(used_cards_filter, (0, 0))
     cards_num = len(chosen_cards)
     if cards_num == 1:
         card = pygame.image.load(fr'PNG\{chosen_cards[0]}.png')
@@ -773,6 +796,8 @@ def choose(cards, last_cards):
 
     finished_choose = False
     run = True
+    print(cards)
+    draw_arrow_choose(cards, index)
     while run:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -814,6 +839,7 @@ def choose(cards, last_cards):
                     #for event in pygame.event.get():
                     #pygame.event.get()
                     if pygame.mouse.get_pressed()[0]:
+                        print("PPP", chosen_cards)
                         is_valid, order = cm.check_valid(chosen_cards)
                         print("chosen cards:", chosen_cards, "is valid is", is_valid, "order is;", order)
                         if len(chosen_cards) == 0:
@@ -865,6 +891,7 @@ def choose(cards, last_cards):
                 WIN.blit(drop_crop, (0, 0))
                 pygame.display.flip()
                 ans = ask_deck_or_last(last_cards)
+                print("order is: ", order)
                 if ans == -1:
                     print('deck returned')
                     return ['DECK', order, cards]
@@ -1008,27 +1035,26 @@ def ask_deck_or_last(last_cards):
 
 def draw_back_to_game(cards, all_sums, stack, last_cards):
     WIN.blit(blue_backg, (0, 0))
-    draw_cards(cards, [], [], [-1], [])
+    #draw_cards(cards, [], [], [-1], [])
     draw_enemy_cards(all_sums)
     draw_stack(stack)
-    if len(last_cards) == 0:
-        used_cards(last_cards, False)
-    else:
-        used_cards(last_cards)
+    # if len(last_cards) == 0:
+    #     used_cards(last_cards, False)
+    # else:
+    #     used_cards(last_cards)
     pygame.display.flip()
 
 
 def main():
     #draw_opensc()
     #name = get_name()
-    run = True
-    #draw_wating_for_players()
+    draw_wating_for_players()
     WIN.blit(intro_backg, (0, 0))
     pygame.display.update()
     #bigger = []
     index = 0
     sums = [5, 5, 5]
-
+    run = True
     #draw_enemy_cards(sums)
     draw_window(blue_backg)
     draw_stack(5)
