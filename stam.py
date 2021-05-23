@@ -265,12 +265,14 @@ def draw_enemy_cards(sums):
     '''the function gets a list of
     the cards amount of each player
     means the len is the players number'''
+    WIN.blit(enemy_card_crop, (0, 0))
+
     sums.reverse()
     card_h = WIDTH/6
     card_w = card_h*1.3
 
     if len(sums) == 1:
-        how_many = sums[0]
+        how_many = int(sums[0])
 
         if how_many > 7:
             e_cards = pygame.image.load(rf'PNG\red_back_7+o.png')
@@ -295,10 +297,7 @@ def draw_enemy_cards(sums):
         angle = 135
         #x = WIDTH/10
         for num in sums:
-            if num > 7:
-                e_cards = pygame.image.load(rf'PNG\red_back_7+o.png')
-            else:
-                e_cards = pygame.image.load(rf'PNG\red_back_{num}.png')
+            e_cards = pygame.image.load(rf'PNG\red_back_{num}.png')
 
             e_cards = pygame.transform.scale(e_cards, (int(card_w), int(card_h)))
             e_cards = pygame.transform.rotate(e_cards, angle)
@@ -405,7 +404,7 @@ def draw_wating_for_players():
 
     #textRect = text.get_rect()
     #textRect.center = (WIDTH/2, HEIGHT/2)
-    soundObj.play()
+    #soundObj.play()
     y = HEIGHT
     while y > HEIGHT/3:
         WIN.blit(intro_backg, (0, 0))
@@ -440,7 +439,7 @@ def draw_wating_for_players():
 
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
-                soundObj.stop()
+                #soundObj.stop()
                 loop = False
 def draw_cards(cards, greened, redded, whited, dot_index, new_num=False, pick=False):
 
@@ -874,6 +873,7 @@ def choose(cards, last_cards):
                         draw_button(yaniv1, yaniv2, yaniv_b_crop, (WIDTH/5, HEIGHT - HEIGHT/7), True)
                         #for event in pygame.event.get():
                         if pygame.mouse.get_pressed()[0]:
+                            #is_valid = True
                             is_valid = cm.sum_cards(cards) <= 7
                             if is_valid:
                                 return [YANIV_MESSAGE, cards]
@@ -1051,6 +1051,8 @@ def when_called_yaniv(name, cards, all_cards_string):
     the all_cards argument comes like this--> "4 24 52$32$1 9 19 8$53"
     every '$' divides between cards, and then just split(' ') on the numbers
     gives the array of the cards'''
+    card_list = cards.split(' ')
+
     WIN.blit(enemy_card_crop, (0, 0))
     # first, organization of the cards list
     all_cards = []
@@ -1058,11 +1060,43 @@ def when_called_yaniv(name, cards, all_cards_string):
     for list in all_strings:
         all_cards.append(list.split(' '))
 
+    print('all the cards:', all_cards, "your cards:", card_list)
+    all_cards.remove(card_list)
+    print("new all cards:", all_cards)
     players_num = len(all_cards)  # not including the client himself
     ratio = 7
     card_w = 691/ratio
     card_h = 1056/ratio
 
+    if players_num == 1:
+
+        print("now printing kaki gadol")
+        DIF = WIDTH/40
+        MIDDLE_X = WIDTH/2
+        MIDDLE_Y = HEIGHT/8
+        point_x = MIDDLE_X - (DIF*(len(all_cards[0]) - 1)/2)
+        point_y = MIDDLE_Y
+        alpha = 180
+
+        for card in all_cards[0]:
+            print("drawing the cards one by one")
+            card = fr'PNG\{card}.png'
+            card_image = pygame.image.load(card)
+
+            card_image = pygame.transform.scale(card_image, (int(card_w), int(card_h)))
+
+            rand_adding = random.randint(-5, 5)
+            alpha += rand_adding
+            card_image = pygame.transform.rotate(card_image, alpha)
+
+            #print(f'imageW {image.get_width()} and imageH {image.get_height()}')
+
+            card_rect = card_image.get_rect()
+            card_rect.center = (point_x, point_y)
+            WIN.blit(card_image, card_rect)
+
+            point_x += DIF
+            alpha -= rand_adding
 
     if players_num == 2:
 

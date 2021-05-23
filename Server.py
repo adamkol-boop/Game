@@ -80,9 +80,10 @@ def broadcast(clients, message, header):
     for client in clients:
         client.send(f'BROADCAST&{header}&{message}'.encode(FORMAT))
 
-def turn(player, p_cards, game, last_turn_cards):
+def turn(whos_turn, player, all_cards, game, last_turn_cards):
     '''the function  handles a turn. it ends only when
     the player has made a valid turn'''
+    p_cards = all_cards[whos_turn]
     time.sleep(0.5)
     last_turn_cards = list_to_string(last_turn_cards)
     #print("last turn cards len:", len(last_turn_cards))
@@ -94,6 +95,14 @@ def turn(player, p_cards, game, last_turn_cards):
     chosen_cards = wait_for_msg(header='CC')[0]
     print("message:", chosen_cards)
     if chosen_cards == 'VY':  # valid yaniv
+        all_cards_string = ''
+        for i in range(0, len(all_cards) - 1):
+            stringed_cards = list_to_string(all_cards[i])
+            all_cards_string += stringed_cards + '$'
+        stringed_cards = list_to_string(all_cards[-1])
+        all_cards_string += stringed_cards
+
+        broadcast(clients, all_cards_string, 'PCY')
         return YANIV_MESSAGE
 
     #broadcast(clients, f'{chosen_cards}', 'ULC')
@@ -166,11 +175,44 @@ def game(clients):
     match = True
     while match:
         last_cards_string = list_to_string(last_cards)
-        broadcast(clients, last_cards_string, 'ULC')  # ULCas = Updated Last Cards
-        last_cards = turn(clients[who_starts], all_cards[who_starts], game, last_cards)
+
+        all_sums_for_send = []
+
+
+        if who_starts == 0:
+            for i in range(0, len(all_sums) - 1):
+                all_sums_for_send.append(all_sums[i])
+        else:
+            last_index = who_starts - 1
+            if last_index == 0:
+                for i in range(1, len(all_sums)):
+                    all_sums_for_send.append(all_sums[i])
+            else:
+                for i in range(last_index + 1, len(all_sums)):
+                    all_sums_for_send.append(all_sums[i])
+                for i in range(0, last_index):
+                    all_sums_for_send.append(all_sums[i])
+
+        # if who_starts != 0:  # if the current player is not the last in the clients list
+        #     print("if ")
+        #     for i in range((who_starts - 1) + 1, len(all_sums)):
+        #         all_sums_for_send.append(all_sums[i])
+        #     for i in range(0, (who_starts - 1)):
+        #         all_sums_for_send.append(all_sums[i])
+        # else:  # the current p[layer is the last client in the list
+        #     print('else')
+        #     for i in range(0, len(all_sums) - 1):
+        #         all_sums_for_send.append(all_sums[i])
+
+        print("all sums:", all_sums, '\nall sums to send:', all_sums_for_send)
+        all_sums_string = list_to_string(all_sums_for_send)
+        broadcast(clients, f'{last_cards_string}${all_sums_string}', 'ULC')  # ULCas = Updated Last Cards
+
+        last_cards = turn(who_starts, clients[who_starts], all_cards, game, last_cards)
 
         # after this line, the last cards saves the current turn chosen cards.
         all_sums[who_starts] -= len(last_cards)
+        all_sums[who_starts] += 1
 
         #time.sleep(0.5)
         #broadcast(clients, all_sums, 'AS')  # All Sums

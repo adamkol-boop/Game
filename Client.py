@@ -12,6 +12,7 @@ DISCONNECT_MESSAGE = "!DISCONNECT"
 INVALID = "INVALID"
 VALID = "VALID"
 NOT_YOU_YANIV_MESSAGE = 'NYYANIV'
+YANIV_MESSAGE = 'yaniv'
 # YANIV_MESSAGE = 'yaniv'
 
 SERVER = socket.gethostbyname(socket.gethostname())
@@ -44,11 +45,16 @@ def handle_msg(client):
             if header == 'RS':
                 time.sleep(1)
                 gc.draw_stack(5)
-            if header == 'ULC':
+            if header == 'ULC':  # Updated last cards
                 time.sleep(1)
                 last_cards = data.split('&')[2]
                 graphic_queue.append(f'{header}%{last_cards}')
                 #gc.used_cards(data.split('&')[2].split(' '))
+            if header == 'PCY':  # player called Yaniv
+                print("got broadcast PCY")
+                time.sleep(1)
+                all_cards = data.split('&')[2]
+                graphic_queue.append(f'{header}%{all_cards}')
         msg_queue.append(data)
 
 
@@ -133,12 +139,21 @@ def graphics():
 
             if header == 'ULC':
                 if printed_screen:
-                    last_cards = graphic.split('%')[1].split(' ')
+                    last_cards = graphic.split('%')[1].split('$')[0].split(' ')
+                    all_sums = graphic.split('%')[1].split('$')[1].split(' ')
+                    gc.draw_enemy_cards(all_sums)
                     graphic_queue.remove(graphic)
                     print("got the ULC message")
                     print("last cards before split:", last_cards)
 
                     gc.used_cards(last_cards)
+
+            if header == 'PCY':
+                print("should print th yaniv message")
+                all_cards = graphic.split('%')[1]
+                graphic_queue.remove(graphic)
+                graphic_respond_queue.append(f'PCY%{all_cards}')
+                #gc.when_called_yaniv('Adam', all_cards)
 
 
 def list_to_string(card_list):
@@ -148,7 +163,7 @@ def list_to_string(card_list):
     p_cards_str += str(card_list[-1])
     return p_cards_str
 
-def match(client):
+def match(client, name):
     '''the function gets the connection socket with the server
     and handles the gaem itself. all the logic is going here.
     void function'''
@@ -156,13 +171,15 @@ def match(client):
     for i in range(0, int(number_of_players) - 1):
         sums.append(5)
 
-    cards = wait_for_msg(header='SGC')
-    graphic_queue.append(f'SGC%{cards}')  # the draw thread is drawing: background, enemy cards, your cards.
+    new_cards_string = wait_for_msg(header='SGC')
+    graphic_queue.append(f'SGC%{new_cards_string}')  # the draw thread is drawing: background, enemy cards, your cards.
 
-    print("[YOUR CARDS ARE]", cards)
+    print("[YOUR CARDS ARE]", new_cards_string)
 
-    new_cards = cards.split(' ')
+    new_cards = new_cards_string.split(' ')
     gc.draw_cards(new_cards, [], [], [-1], [])
+
+
     game_is_on = True
     while game_is_on:
         '''the message below is the begining of every turn.
@@ -173,8 +190,20 @@ def match(client):
 
         last_cards = wait_for_msg(header='LC') # waiting for last cards
 
+
         if last_cards == 'EML':  # end message loose. final
             #graphic_queue.append('EML')  # added
+            stop = False
+            while not stop:
+                for item in graphic_respond_queue:
+                    header = item.split('%')[0]
+                    if header == 'PCY':
+                        print('GOT THE HEADER PCY FROM THE GRAPHIC RESPOND')
+                        all_cards = item.split('%')[1]
+                        graphic_respond_queue.remove(item)
+                        gc.when_called_yaniv('Someone', new_cards_string, all_cards)
+                        stop = True
+                    pygame.display.flip()
             print('[BETTER LUCK NEXT TIME...]')
             return False
         if last_cards == 'EMA':
@@ -187,21 +216,42 @@ def match(client):
         print(f'[THE LAST CARDS] {last_cards}')
         print("It's your turn!")
         res = gc.choose(new_cards, last_cards)
+        if res[0] == YANIV_MESSAGE:
+            client.send(f'CC&VY'.encode(FORMAT))  # chosen cards --> valid message
 
-        chosen = list_to_string(res[1])
-        client.send(f'CC&{chosen}'.encode(FORMAT))  # already valid
-        print('[CARDS SENT]', chosen)
+            stop = False
+            while not stop:
+                for item in graphic_respond_queue:
+                    header = item.split('%')[0]
+                    if header == 'PCY':
+                        print('GOT THE HEADER PCY FROM THE GRAPHIC RESPOND')
+                        all_cards = item.split('%')[1]
+                        graphic_respond_queue.remove(item)
+                        gc.when_called_yaniv(name, new_cards_string, all_cards)
+                        stop = True
 
-        time.sleep(0.5)
-        if res[0] == 'DECK':
-            client.send(f'DL&{res[0]}'.encode(FORMAT))
-        elif res[0] == 'LAST':
-            client.send(f'DL&{res[0]}&{res[-1][-1]}'.encode(FORMAT))
-            last_cards.remove(res[-1][-1])
-        # print("res is", int(res[-1][-1]))
-        # print("last cards:", last_cards)
-        gc.draw_back_to_game(res[-1], sums, 5, last_cards)
-        print("turn done")
+            print('fuckin yaniv')
+            return "match ended"
+
+        # --------------------------------------------------
+        else:
+            chosen = list_to_string(res[1])
+            client.send(f'CC&{chosen}'.encode(FORMAT))  # already valid
+            print('[CARDS SENT]', chosen)
+            time.sleep(0.5)
+            if res[0] == 'DECK':
+                client.send(f'DL&{res[0]}'.encode(FORMAT))
+            elif res[0] == 'LAST':
+                client.send(f'DL&{res[0]}&{res[-1][-1]}'.encode(FORMAT))
+                last_cards.remove(res[-1][-1])
+
+            # print("res is", int(res[-1][-1]))
+            # print("last cards:", last_cards)
+            gc.draw_back_to_game(res[-1], sums, 5, last_cards)
+            print("turn done")
+
+            #------------------------------------------------------
+
         #graphic_queue.append(f'CH')  # ch stands for choose
 
         # now wait for chosen cards
@@ -249,7 +299,8 @@ def match(client):
         # if deck_or_last.lower() == 'd':
         #     client.send('DL&DECK&chose deck'.encode(FORMAT)) # deck/last
 
-        new_cards = wait_for_msg(header='NC').split(' ')  # waiting for new cards
+        new_cards_string = wait_for_msg(header='NC')  # waiting for new cards
+        new_cards = new_cards_string.split(' ')
         print('new cards are:', new_cards)
         gc.draw_cards(new_cards, [], [], [-1], [])
         print(f"[YOUR NEW CARDS ARE] {new_cards}")
@@ -259,6 +310,7 @@ def main():
     #  main
     #gc.draw_opensc()  # drawing open screen before the connection
     #name = gc.get_name()  # getting the name
+    name = "fuck"
 
     # now, the connection should be established
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -272,7 +324,8 @@ def main():
     graphic_thread = threading.Thread(target=graphics)
     graphic_thread.start()
 
-    res = match(client)  # match
+    res = match(client, name)  # match
+    print(res)
     if res:
         end_res = wait_for_msg(header='EM')
         print(end_res)
