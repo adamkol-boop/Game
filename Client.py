@@ -22,7 +22,10 @@ msg_queue = []
 
 graphic_queue = []
 graphic_respond_queue = []
+
+names = []
 number_of_players = -1
+client_index = -1
 
 def handle_msg(client):
     global number_of_players
@@ -37,8 +40,11 @@ def handle_msg(client):
         if data.split('&')[0] == 'BROADCAST':  # means got broadcast
             header = data.split('&')[1]
             if header == 'WFP':  # waiting for players
-                number_connected = data.split('&')[2]
+                content = data.split('&')[2]
+                number_connected = content.split('$')[0]
+                new_name = content.split('$')[1]
                 print("got number in lobby", number_connected)
+                print("got nre name", new_name)
                 time.sleep(1)
                 gc.draw_number_in_lobby(number_connected)
                 number_of_players = number_connected
@@ -47,8 +53,8 @@ def handle_msg(client):
                 gc.draw_stack(5)
             if header == 'ULC':  # Updated last cards
                 time.sleep(1)
-                last_cards = data.split('&')[2]
-                graphic_queue.append(f'{header}%{last_cards}')
+                content = data.split('&')[2]
+                graphic_queue.append(f'{header}%{content}')
                 #gc.used_cards(data.split('&')[2].split(' '))
             if header == 'PCY':  # player called Yaniv
                 print("got broadcast PCY")
@@ -102,6 +108,35 @@ def start_thread(client):
     thread = threading.Thread(target=handle_msg, args=(client, ))
     thread.start()
 
+def organize_list(list, player_index):
+    '''
+    the function organizes the ordre of the card sums of the other players
+    :param sums: all sums of cards (including the client -> getting it from server)
+    :param player_index: the index of the player in the array (tells which sum is his)
+    :return: list of the sums to drae by clock order
+    '''
+    print('-------------------------\n')
+    print("PLAYER INDEX IS", player_index)
+    print("sums in funciton are", list)
+    print("number of players", number_of_players)
+    res = []
+    if player_index == 0:
+        for i in range(1, len(list)):
+            res.append(list[i])
+            print('appended with 0')
+    elif player_index == int(number_of_players) - 1: # if he is the last player
+        for i in range(0, len(list) - 1):
+            res.append(list[i])
+            print("appended")
+    else:
+        for i in range(player_index + 1, len(list)):
+            res.append(list[i])
+        for i in range(0, player_index):
+            res.append(list[i])
+
+    print('-------------------------\n')
+    return res
+
 def graphics():
 
     print("entered the graphics thread")
@@ -109,7 +144,7 @@ def graphics():
     run = True
     #WIN.blit(gc.blue_backg, (0, 0))
     pygame.display.update()
-
+    #global all_names
     printed_screen = False
     while run:
         #print(graphic_queue)
@@ -117,6 +152,7 @@ def graphics():
             if event.type == pygame.QUIT:
                 pygame.quit()
 
+        #print(graphic_queue)
         for graphic in graphic_queue:
             header = graphic.split('%')[0]
             print("header is", header)
@@ -126,13 +162,19 @@ def graphics():
                 print("got the draw cards message")
                 print("content before split:", content)
 
-                content = content.split(' ')
-                print("cards:", content, "len:", len(content))
+                cards = content.split('$')[0].split(' ')
+                #all_names = content.split('$')[1].split(' ')
+
+                #names_needed = organize_list(all_names, client_index)
+
+                print("cards:", cards, "len:", len(content))
                 sums = []
                 for i in range(0, int(number_of_players) - 1):
                     sums.append(5)
-                print(content)
-                gc.draw_back_to_game(content, sums, 5, [])
+                print(cards)
+                gc.draw_back_to_game(sums, 5, names)
+                #gc.draw_all_names(names_needed)
+                print("names PRINTEDDDDDDDD")
                 #gc.draw_cards(content, [], [], [-1], [])
                 printed_screen = True
                 graphic_queue.remove(graphic)
@@ -140,8 +182,11 @@ def graphics():
             if header == 'ULC':
                 if printed_screen:
                     last_cards = graphic.split('%')[1].split('$')[0].split(' ')
-                    all_sums = graphic.split('%')[1].split('$')[1].split(' ')
-                    gc.draw_enemy_cards(all_sums)
+                    all_players_sums = graphic.split('%')[1].split('$')[1].split(' ')
+                    print('all sums are', all_players_sums)
+                    sums = organize_list(all_players_sums, client_index)
+                    print("clients sum is:", sums)
+                    gc.draw_enemy_cards(sums, names)
                     graphic_queue.remove(graphic)
                     print("got the ULC message")
                     print("last cards before split:", last_cards)
@@ -163,15 +208,31 @@ def list_to_string(card_list):
     p_cards_str += str(card_list[-1])
     return p_cards_str
 
+
 def match(client, name):
     '''the function gets the connection socket with the server
     and handles the gaem itself. all the logic is going here.
     void function'''
     sums = []
+    global client_index
+    global names
     for i in range(0, int(number_of_players) - 1):
         sums.append(5)
 
-    new_cards_string = wait_for_msg(header='SGC')
+    print('waiting for sgc now')
+    cards_n_names = wait_for_msg(header='SGC')
+    print('sgc received:', cards_n_names)
+
+    new_cards_string = cards_n_names.split('$')[0]
+    all_names = cards_n_names.split('$')[1].split(' ')
+
+
+    print('got all names with sgc', all_names)
+    client_index = all_names.index(name)
+    names = organize_list(all_names, client_index)
+
+    print("new cards string is:", new_cards_string)
+    #names_needed = organize_list(all_names, client_index)
     graphic_queue.append(f'SGC%{new_cards_string}')  # the draw thread is drawing: background, enemy cards, your cards.
 
     print("[YOUR CARDS ARE]", new_cards_string)
@@ -247,7 +308,10 @@ def match(client, name):
 
             # print("res is", int(res[-1][-1]))
             # print("last cards:", last_cards)
-            gc.draw_back_to_game(res[-1], sums, 5, last_cards)
+            #gc.draw_cards
+            gc.draw_back_to_game(sums, 5, names)
+            #names_orgsd = organize_list(all_names, client_index)  # names organized
+            #gc.draw_all_names(names_orgsd)
             print("turn done")
 
             #------------------------------------------------------
@@ -309,8 +373,9 @@ def match(client, name):
 def main():
     #  main
     #gc.draw_opensc()  # drawing open screen before the connection
-    #name = gc.get_name()  # getting the name
-    name = "fuck"
+    name = gc.get_name()  # getting the name
+    print("name is", name)
+    #name = "fuck"
 
     # now, the connection should be established
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -318,13 +383,17 @@ def main():
 
     start_thread(client)  # handling messages started
 
+    client.send(f'PN&{name}'.encode(FORMAT)) # players name
+
     gc.draw_wating_for_players()  # waiting until all the connections made
 
+    print('finished waiting for clients')
     # now, before the game mechanics start, the graphic thread can start too
     graphic_thread = threading.Thread(target=graphics)
     graphic_thread.start()
 
-    res = match(client, name)  # match
+    print("match is starting now")
+    res = match(client, name[:-1])  # match
     print(res)
     if res:
         end_res = wait_for_msg(header='EM')

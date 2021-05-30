@@ -110,8 +110,6 @@ def draw_window(image1):
     WIN.blit(im, (0, 0))
     pygame.display.update()
 
-# List_updates = []
-
 soundObj = pygame.mixer.Sound(r'Music\ElevatorMusic.wav')
 ww_music = pygame.mixer.Sound(r'Music\WildWestern.wav')
 
@@ -261,7 +259,7 @@ def rot_center(image, angle):
     # rot_image = rot_image.subsurface(rot_rect).copy()
     return rot_image
 
-def draw_enemy_cards(sums):
+def draw_enemy_cards(sums, all_names):
     '''the function gets a list of
     the cards amount of each player
     means the len is the players number'''
@@ -358,7 +356,8 @@ def draw_enemy_cards(sums):
                 angle = 180
                 y = 90
             i += 1
-
+    draw_all_names(all_names)
+    pygame.display.flip()
 
 def draw_card_test():
     crd = pygame.image.load(r'PNG\red_back.png')
@@ -749,7 +748,6 @@ def used_cards(chosen_cards, filter=True):
     # WIN.blit(card_image, card_rect)
 def get_name():
     '''the function takes the name of the player and draws the name'''
-    #print("ohhhhhh")
 
     WIN.blit(intro_backg, (0, 0))
     pygame.display.flip()
@@ -851,7 +849,7 @@ def choose(cards, last_cards):
                             #print("valid. cards: ", cards, "chosen cards:", chosen_cards)
                             for card in chosen_cards:
                                 cards.remove(card)
-                            draw_cards(cards, [], [], [-1], [], True)
+                            #draw_cards(cards, [], [], [-1], [], True)
                             index = 0
                             draw_arrow_choose(order, index)
                             draw_button(drop1, drop2, drop_crop, (WIDTH - WIDTH/5, HEIGHT - HEIGHT/7), False)
@@ -902,7 +900,7 @@ def choose(cards, last_cards):
                 else:
                     print("last returned")
                     cards.append(ans)
-                    draw_cards(cards, [], [], [-1], [])
+                    #draw_cards(cards, [], [], [-1], [])
                     return ['LAST', order, cards]
         # STACK
         #mx, my = pygame.mouse.get_pos()
@@ -1035,10 +1033,82 @@ def ask_deck_or_last(last_cards):
 
     #question = choose_txt = myfont_medium.render('draw pile:', True, WHITE)
 
-def draw_back_to_game(cards, all_sums, stack, last_cards):
+def draw_all_names(all_names):
+    '''
+    the function draws the name of all players near their cards
+    :param all_names: all the name without the clients name
+    :return: nothing
+    '''
+    if len(all_names) == 1:
+        y = HEIGHT/8.5
+        x =  WIDTH/1.6
+        name_text = myfont_small.render(all_names[0], True, WHITE)
+        name_rect = name_text.get_rect()
+
+        x = x + name_rect.width/2
+        name_rect.center = (x, y)
+
+        WIN.blit(name_text, name_rect)
+
+    if len(all_names) == 2:
+        y = HEIGHT/2.5
+        center_x = [WIDTH/50, WIDTH - WIDTH/50]
+        for i in range(0, len(all_names)):
+            print("first name is", all_names[i])
+            name_text = myfont_small.render(all_names[i], True, WHITE)
+            name_rect = name_text.get_rect()
+            x = center_x[i] - name_rect.width/2
+            if i == 0:
+                x = center_x[i] + name_rect.width/2
+            name_rect.center = (x, y)
+
+            WIN.blit(name_text, name_rect)
+
+    if len(all_names) == 3:
+        y = [HEIGHT/3.3, HEIGHT/8.5, HEIGHT/3.3]
+        center_x = [WIDTH/50, WIDTH/1.68, WIDTH - WIDTH/50]
+        for i in range(0, len(all_names)):
+            print("first name is", all_names[i])
+            name_text = myfont_small.render(all_names[i], True, WHITE)
+            name_rect = name_text.get_rect()
+            x = center_x[i] - name_rect.width/2
+            if i == 0 or i == 1:
+                x = center_x[i] + name_rect.width/2
+            name_rect.center = (x, y[i])
+
+            WIN.blit(name_text, name_rect)
+
+    if len(all_names) == 4:
+        y = [HEIGHT/3.3, HEIGHT/8.5, HEIGHT/8.5, HEIGHT/3.3]
+        center_x = [WIDTH/50, WIDTH/4, WIDTH - WIDTH/4, WIDTH - WIDTH/50]
+        for i in range(0, len(all_names)):
+            print("first name is", all_names[i])
+            name_text = myfont_small.render(all_names[i], True, WHITE)
+            name_rect = name_text.get_rect()
+            x = center_x[i] - name_rect.width/2
+            if i == 0 or i == 2:
+                x = center_x[i] + name_rect.width/2
+            name_rect.center = (x, y[i])
+
+            WIN.blit(name_text, name_rect)
+
+    # for i in range(0, len(all_names)):
+    #
+    #     name_text = myfont_small.render(all_names[i], True, WHITE)
+    #     #name_rect = name_text.get_rect()
+    #     #name_rect.center = places[len(all_names) - 1][i]
+    #
+    #     #name_text = pygame.transform.rotate(name_text, places[len(all_names) - 1][i + len(all_names)])
+    #
+    #     WIN.blit(name_text, places[len(all_names) - 1][i])
+
+    pygame.display.flip()
+
+def draw_back_to_game(all_sums, stack, all_names):
     WIN.blit(blue_backg, (0, 0))
     #draw_cards(cards, [], [], [-1], [])
-    draw_enemy_cards(all_sums)
+    draw_enemy_cards(all_sums, all_names)
+    #draw_all_names(all_names)
     draw_stack(stack)
     # if len(last_cards) == 0:
     #     used_cards(last_cards, False)
@@ -1237,17 +1307,19 @@ def main():
     #draw_opensc()
     #name = get_name()
     name = 'Adam'
+    all_names = ['Yu']
     #draw_wating_for_players()
     WIN.blit(intro_backg, (0, 0))
     pygame.display.update()
     #bigger = []
     index = 0
-    sums = [1, 2, 3, 4]
+    sums = [5]
     run = True
     #draw_enemy_cards(sums)
     draw_window(blue_backg)
     draw_stack(5)
     draw_enemy_cards(sums)
+    draw_all_names(all_names)
     cards = [53, 1, 26]
     cards_greened = []
     draw_arrow_choose(cards, 0)
@@ -1265,8 +1337,10 @@ def main():
         when_called_yaniv(name, res[1], '1 52 3 4 5$1 2 3 4 53$8 9 0$9 8 7')
     else:
         last_cards.remove(res[-1][-1])
-        draw_back_to_game(res[-1], sums, 5, last_cards)
+        draw_back_to_game(sums, 5, all_names)
         used_cards(res[1])
+        all_names = []
+        draw_all_names(all)
 
     #if res[0]:
         #deck_or_last = pick_dl()  # pick deck or last
