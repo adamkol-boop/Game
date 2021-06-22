@@ -24,6 +24,11 @@ server.bind(ADDR)
 
 
 def handle_client(conn, addr):
+    '''
+    the function is responsible for getting messages from the client
+    :param conn: socket ID
+    :param addr: socket ID
+    '''
     print(f"THREAD [NEW CONNECTION] {addr} connected.")
 
     connected = True
@@ -36,10 +41,11 @@ def handle_client(conn, addr):
     conn.close()
 
 def start():
-    server.listen()
+    server.listen(5)
     print(f"[LISTENING] Server is listening on {SERVER}\n")
     count = 0
-    while count < 2:
+    host_name = ''
+    while count < 5:
         conn, addr = server.accept()
         clients.append(conn)
         thread = threading.Thread(target=handle_client, args=(conn, addr))
@@ -51,8 +57,9 @@ def start():
         print("new name in server looks like:", new_name)
         all_names.append(new_name)
         print("all names are:", all_names)
-
-        message = f'{count}${new_name}' # sends the number of players and the last name connected
+        if count == 1:
+            host_name = new_name
+        message = '{}${}${}'.format(count, new_name, host_name) # sends the number of players and the last name connected
         broadcast(clients, message, 'WFP')  # number of players connected
 
     print(f"[FINISHED {count} CONNECTIONS]\n")
@@ -67,10 +74,7 @@ def wait_for_msg(header):
             if item.split('&')[0] == header:
                 msg = queue[i]
                 queue.remove(msg)
-                print("msg is", msg)
                 msg = msg.split('&')[1:]
-                print(msg)
-                # print('msg-->', msg)
                 return msg
 
 def all_cards_used(game):
@@ -86,8 +90,16 @@ def all_cards_used(game):
     return True
 
 def broadcast(clients, message, header):
+    '''
+    the function sends to all clients in the list the message with the header
+    from the params.
+    :param clients: list of clietns
+    :param message: the content of the message
+    :param header: the header of the message
+    :return:
+    '''
     for client in clients:
-        client.send(f'BROADCAST&{header}&{message}'.encode(FORMAT))
+        client.send('BROADCAST&{}&{}'.format(header, message).encode(FORMAT))
 
 def turn(whos_turn, player, all_cards, game, last_turn_cards):
     '''the function  handles a turn. it ends only when
@@ -98,7 +110,7 @@ def turn(whos_turn, player, all_cards, game, last_turn_cards):
     #print("last turn cards len:", len(last_turn_cards))
     #print("last turn cards:", last_turn_cards)
     time.sleep(1)
-    player.send(f'LC&{last_turn_cards}'.encode(FORMAT))  # stringed
+    player.send('LC&{}'.format(last_turn_cards).encode(FORMAT))  # stringed
     print(f"[LAST TURN CARD SENT:] {last_turn_cards}")
 
     chosen_cards = wait_for_msg(header='CC')[0]
@@ -107,38 +119,37 @@ def turn(whos_turn, player, all_cards, game, last_turn_cards):
         all_cards_string = ''
         for i in range(0, len(all_cards) - 1):
             stringed_cards = list_to_string(all_cards[i])
-            all_cards_string += stringed_cards + '$'
+            all_cards_string += stringed_cards + '^'  #  this sign between groups of cards
         stringed_cards = list_to_string(all_cards[-1])
         all_cards_string += stringed_cards
 
-        broadcast(clients, all_cards_string, 'PCY')
+        winner_mes = all_cards_string + '$' + all_names[whos_turn]  # dollar sign between all the cards and the name
+        print('the message is going to be:', winner_mes)
+        broadcast(clients, winner_mes, 'PCY')
         return YANIV_MESSAGE
 
     #broadcast(clients, f'{chosen_cards}', 'ULC')
 
     chosen_cards = chosen_cards.split(' ')
-    game.going_out(chosen_cards)
+    game.going_out(chosen_cards)  # first, throwing the cards
     for i in range(0, len(chosen_cards)):
-        print("p_cards are", p_cards)
-        p_cards.remove(int(chosen_cards[i]))
+        p_cards.remove(int(chosen_cards[i]))  # updating the players cards
     print(f"[UPDATED CARDS BEFORE L/D] {p_cards}")
 
     last_or_deck = wait_for_msg('DL')
-    print('heeeeeeeeeeeeeeeey', last_or_deck)
     print("[CHOSE]", last_or_deck)
     if last_or_deck[0] == 'DECK':
         new_card = game.deal(1)[0]
-        p_cards.append(int(new_card))
+        p_cards.append(int(new_card))  # adding the random card
 
     elif last_or_deck[0] == 'LAST':
         new_card = last_or_deck[1]
-        print("the last card chosen:", new_card)
         game.out_of_use.remove(int(new_card))
         p_cards.append(int(new_card))
 
     cards_mes = list_to_string(p_cards)
     time.sleep(1)
-    player.send(f'NC&{cards_mes}'.encode(FORMAT))
+    player.send('NC&{}'.format(cards_mes).encode(FORMAT))
     print(f"[UPDATED CARDS FINAL] {p_cards}")
     return chosen_cards
 
@@ -173,8 +184,8 @@ def game(clients):
         all_names_stringed = list_to_string(all_names)
 
         print("stringed is", cards_stringed)
-        player.send(f'SGC&{cards_stringed}${all_names_stringed}'.encode(FORMAT))
-        print('message sent OH:', f'SGC&{cards_stringed}${all_names_stringed}')
+        player.send('SGC&{}${}'.format(cards_stringed, all_names_stringed).encode(FORMAT))
+
         time.sleep(1)
         players += 1
 
@@ -188,36 +199,8 @@ def game(clients):
     while match:
         last_cards_string = list_to_string(last_cards)
         all_sums_string = list_to_string(all_sums)
-        all_sums_for_send = []
 
-        # if who_starts == 0:
-        #     for i in range(0, len(all_sums) - 1):
-        #         all_sums_for_send.append(all_sums[i])
-        # else:
-        #     last_index = who_starts - 1
-        #     if last_index == 0:
-        #         for i in range(1, len(all_sums)):
-        #             all_sums_for_send.append(all_sums[i])
-        #     else:
-        #         for i in range(last_index + 1, len(all_sums)):
-        #             all_sums_for_send.append(all_sums[i])
-        #         for i in range(0, last_index):
-        #             all_sums_for_send.append(all_sums[i])
-
-        # if who_starts != 0:  # if the current player is not the last in the clients list
-        #     print("if ")
-        #     for i in range((who_starts - 1) + 1, len(all_sums)):
-        #         all_sums_for_send.append(all_sums[i])
-        #     for i in range(0, (who_starts - 1)):
-        #         all_sums_for_send.append(all_sums[i])
-        # else:  # the current p[layer is the last client in the list
-        #     print('else')
-        #     for i in range(0, len(all_sums) - 1):
-        #         all_sums_for_send.append(all_sums[i])
-
-        #print("all sums:", all_sums, '\nall sums to send:', all_sums_for_send)
-        #all_sums_string = list_to_string(all_sums_for_send)
-        broadcast(clients, f'{last_cards_string}${all_sums_string}', 'ULC')  # ULC = Updated Last Cards
+        broadcast(clients, '{}${}'.format(last_cards_string, all_sums_string), 'ULC')  # ULC = Updated Last Cards
 
         last_cards = turn(who_starts, clients[who_starts], all_cards, game, last_cards)
 
@@ -255,20 +238,24 @@ def game(clients):
             if i != who_starts:
                 clients[i].send("LC&EML".encode(FORMAT))  # final end message
             elif i == who_starts:
-                clients[i].send("EM&CONGRATULATIONS YOU are the WINNER".encode(FORMAT))
+                clients[i].send("EM&congratulations you are the winner!".encode(FORMAT))
     else:  # there is an asaf
         for i in range(0, len(clients)):
             if i == winner[1]:
                 clients[i].send("LC&EMA".encode(FORMAT))  # final end message assaf, the final winner
             elif i == who_starts:
-                clients[i].send("EM&Oops, seems like you got ASAFed...".encode(FORMAT))
+                mes = "EM&you got asaf-ed by " + all_names[i]
+                clients[i].send(mes.encode(FORMAT))
             else:
                 clients[i].send("LC&EML".encode(FORMAT))
 
 
 print("[STARTING] server is starting...")
-start()
-print("now what")
+getting_conns = threading.Thread(target=start)
+getting_conns.start()
+wait_for_msg('GIO')
+for client in clients:
+    client.send('GIO&start'.encode(FORMAT))
 game(clients)
 
 #game_between_two(clients[0], clients[1])
